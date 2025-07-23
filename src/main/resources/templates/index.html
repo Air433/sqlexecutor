@@ -24,6 +24,8 @@
             }
             .result-table td {
                 @apply px-4 py-2 whitespace-nowrap text-sm text-gray-700;
+                max-width: 300px; /* 设置单元格最大宽度 */
+                overflow-x: auto; /* 超出宽度时显示水平滚动条 */
             }
             .result-table tr:nth-child(even) {
                 @apply bg-gray-50;
@@ -32,7 +34,7 @@
     </style>
     <style>
         .scroll-container {
-            width: 900px;
+            width: 1500px;
             height: 500px;
             overflow: auto;
             border: 1px solid #ccc;
@@ -43,7 +45,7 @@
 <div class="min-h-screen flex flex-col">
     <!-- 导航栏 -->
     <header class="bg-white shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="w-full mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
                         <span class="text-xl font-bold text-blue-600 flex items-center">
@@ -57,7 +59,7 @@
 
     <!-- 主要内容 -->
     <main class="flex-grow">
-        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="w-full mx-auto py-6 sm:px-6 lg:px-8">
             <!-- 消息提示 -->
             <div class="mb-6">
                 <div id="message-container"></div>
