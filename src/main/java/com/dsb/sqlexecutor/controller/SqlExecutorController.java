@@ -11,6 +11,9 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -36,6 +39,7 @@ public class SqlExecutorController {
     }
 
     // 执行SQL语句
+    // 执行SQL语句
     @PostMapping("/execute")
     public String executeSql(@RequestParam String sql,
                              @RequestParam(required = false) String database,
@@ -57,7 +61,12 @@ public class SqlExecutorController {
                     sql.toLowerCase().startsWith("desc")) {
                 // 查询语句
                 List<Map<String, Object>> result = sqlExecutorService.executeQuery(sql);
-                model.addAttribute("result", result);
+                // 处理结果，确保是普通的Map
+                List<Map<String, Object>> processedResult = new ArrayList<>();
+                for (Map<String, Object> row : result) {
+                    processedResult.add(new HashMap<>(row));
+                }
+                model.addAttribute("result", processedResult);
                 model.addAttribute("message", "查询成功，返回 " + result.size() + " 条记录");
             } else {
                 // 更新语句
