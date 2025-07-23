@@ -192,7 +192,7 @@
                                 <table class="result-table">
                                     <thead>
                                     <tr th:if="${result.size() > 0}">
-                                        <th th:each="column : ${#maps.keys(result[0])}" th:text="${column}">ID</th>
+                                        <th th:each="column : ${result.get(0).keySet()}" th:text="${column}">ID</th>
                                     </tr>
                                     </thead>
                                     <tbody>
