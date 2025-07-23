@@ -12,10 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Controller
 @RequestMapping("/")
@@ -64,7 +61,7 @@ public class SqlExecutorController {
                 // 处理结果，确保是普通的Map
                 List<Map<String, Object>> processedResult = new ArrayList<>();
                 for (Map<String, Object> row : result) {
-                    processedResult.add(new HashMap<>(row));
+                    processedResult.add(new LinkedHashMap<>(row));
                 }
                 model.addAttribute("result", processedResult);
                 model.addAttribute("message", "查询成功，返回 " + result.size() + " 条记录");

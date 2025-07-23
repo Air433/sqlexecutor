@@ -30,6 +30,14 @@
             }
         }
     </style>
+    <style>
+        .scroll-container {
+            width: 960px;
+            height: 500px;
+            overflow: auto;
+            border: 1px solid #ccc;
+        }
+    </style>
 </head>
 <body class="bg-gray-50 font-sans">
 <div class="min-h-screen flex flex-col">
@@ -188,7 +196,7 @@
                             <h3 class="text-lg font-medium text-gray-900 mb-3">执行结果</h3>
 
                             <!-- 查询结果表格 -->
-                            <div th:if="${result}" class="overflow-x-auto bg-white rounded-md border border-gray-200">
+                            <div th:if="${result}" class="scroll-container overflow-x-auto bg-white rounded-md border border-gray-200">
                                 <table class="result-table">
                                     <thead>
                                     <tr th:if="${result.size() > 0}">

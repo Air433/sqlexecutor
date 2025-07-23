@@ -6,6 +6,9 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.stereotype.Repository;
 
 import javax.sql.DataSource;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -26,8 +29,19 @@ public class SqlExecutorRepository {
 
     // 执行查询语句
     public List<Map<String, Object>> executeQuery(String sql) {
-        return jdbcTemplate.queryForList(sql);
+        return jdbcTemplate.query(sql, (ResultSet rs, int rowNum) -> {
+            ResultSetMetaData metaData = rs.getMetaData();
+            int columnCount = metaData.getColumnCount();
+            Map<String, Object> row = new LinkedHashMap<>(); // 使用 LinkedHashMap 保证顺序
+            for (int i = 1; i <= columnCount; i++) {
+                String columnName = metaData.getColumnName(i);
+                Object value = rs.getObject(i);
+                row.put(columnName, value);
+            }
+            return row;
+        });
     }
+
 
     // 执行更新语句（INSERT/UPDATE/DELETE）
     public int executeUpdate(String sql) {
