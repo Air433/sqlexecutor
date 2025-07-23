@@ -4,6 +4,7 @@ import com.dsb.sqlexecutor.model.DatabaseConfig;
 import com.dsb.sqlexecutor.repository.SqlExecutorRepository;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
@@ -20,30 +21,71 @@ public class SqlExecutorService {
     private final Map<String, DatabaseConfig> databaseConfigMap = new HashMap<>();
     private String currentDatabase;
 
-    public SqlExecutorService() {
-        // 初始化默认数据库配置（不依赖外部组件）
+//    public SqlExecutorService() {
+//        // 初始化默认数据库配置（不依赖外部组件）
+//        DatabaseConfig defaultConfig = new DatabaseConfig();
+//        defaultConfig.setDatabaseName("dsb");
+//        defaultConfig.setUsername("sa");
+//        defaultConfig.setPassword("123456");
+//        defaultConfig.setHost("localhost");
+//        defaultConfig.setPort(1433);
+//        defaultConfig.setJdbcUrl(String.format(
+//                "jdbc:sqlserver://%s:%d;databaseName=%s;encrypt=true;trustServerCertificate=true",
+//                defaultConfig.getHost(),
+//                defaultConfig.getPort(),
+//                defaultConfig.getDatabaseName()
+//        ));
+//
+//        databaseConfigMap.put("default", defaultConfig);
+//        currentDatabase = "default";
+//    }
+
+    @Value("${spring.datasource.url}")
+    private String jdbcUrl;
+
+    @Value("${spring.datasource.username}")
+    private String username;
+
+    @Value("${spring.datasource.password}")
+    private String password;
+
+    @PostConstruct
+    public void init() {
+        // 使用 application.properties 中的配置作为默认配置
         DatabaseConfig defaultConfig = new DatabaseConfig();
-        defaultConfig.setDatabaseName("dsb");
-        defaultConfig.setUsername("sa");
-        defaultConfig.setPassword("123456");
-        defaultConfig.setHost("localhost");
-        defaultConfig.setPort(1433);
-        defaultConfig.setJdbcUrl(String.format(
-                "jdbc:sqlserver://%s:%d;databaseName=%s;encrypt=true;trustServerCertificate=true",
-                defaultConfig.getHost(),
-                defaultConfig.getPort(),
-                defaultConfig.getDatabaseName()
-        ));
+        // 从 JDBC URL 中提取数据库名、主机和端口
+        String[] parts = jdbcUrl.split(";");
+        String databaseName = null;
+        String host = null;
+        int port = 0;
+        for (String part : parts) {
+            if (part.startsWith("databaseName=")) {
+                databaseName = part.substring("databaseName=".length());
+            } else if (part.startsWith("jdbc:sqlserver://")) {
+                String hostPort = part.substring("jdbc:sqlserver://".length());
+                String[] hostPortParts = hostPort.split(":");
+                host = hostPortParts[0];
+                port = Integer.parseInt(hostPortParts[1]);
+            }
+        }
+        defaultConfig.setDatabaseName(databaseName);
+        defaultConfig.setUsername(username);
+        defaultConfig.setPassword(password);
+        defaultConfig.setHost(host);
+        defaultConfig.setPort(port);
+        defaultConfig.setJdbcUrl(jdbcUrl);
 
         databaseConfigMap.put("default", defaultConfig);
         currentDatabase = "default";
-    }
-
-    // 在依赖注入完成后执行初始化
-    @PostConstruct
-    public void init() {
         switchDatabase("default");
     }
+
+
+    // 在依赖注入完成后执行初始化
+//    @PostConstruct
+//    public void init() {
+//        switchDatabase("default");
+//    }
 
     // 执行查询
     public List<Map<String, Object>> executeQuery(String sql) {
