@@ -84,16 +84,18 @@ public class SqlExecutorService {
     // 切换数据库
     public void switchDatabase(String name) {
         DatabaseConfig config = databaseConfigMap.get(name);
+
         if (config == null) {
             throw new IllegalArgumentException("数据库配置不存在: " + name);
         }
 
-        currentDatabase = name;
         DataSource dataSource = sqlExecutorRepository.createDataSource(
                 config.getJdbcUrl(),
                 config.getUsername(),
-                config.getPassword()
-        );
+                config.getPassword());
+
+        currentDatabase = name;
+
         sqlExecutorRepository.setDataSource(dataSource);
     }
 

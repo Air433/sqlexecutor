@@ -32,7 +32,7 @@
     </style>
     <style>
         .scroll-container {
-            width: 960px;
+            width: 900px;
             height: 500px;
             overflow: auto;
             border: 1px solid #ccc;
@@ -60,6 +60,7 @@
         <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <!-- 消息提示 -->
             <div class="mb-6">
+                <div id="message-container"></div>
                 <div th:if="${message}" class="bg-green-50 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
                     <strong class="font-bold">成功!</strong>
                     <span class="block sm:inline" th:text="${message}"></span>
@@ -88,66 +89,73 @@
                             <div class="space-y-1">
                                 <a href="#" th:href="@{/switch-database/{name}(name=${configKey})}"
                                    th:each="configKey : ${databaseConfigs.keySet()}"
-                                   th:text="${configKey + ' (' + (databaseConfigs[configKey]?.databaseName ?: '未知数据库') + ')'}">
-                                    default (mysql)
+                                   class="block px-3 py-2 text-sm text-gray-700 rounded-md hover:bg-gray-100"
+                                   th:text="${configKey  +' (' + (databaseConfigs.get(configKey)?.databaseName ?: '未知数据库') + ')'}">
+                                    default (dsb)
                                 </a>
                             </div>
                         </div>
 
                         <!-- 添加新数据库配置表单 -->
                         <div id="add-database-form" class="hidden mb-6 p-3 bg-white rounded-md border border-gray-200">
-                            <h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">添加数据库</h4>
+                            <h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">添加数据库连接</h4>
 
-                            <form method="post" action="#" th:action="@{/add-database}" th:object="${databaseConfig}">
+                            <form method="post" id="add-database-connection" onsubmit="return false;">
                                 <div class="mb-2">
-                                    <label for="databaseName" class="block text-xs font-medium text-gray-700 mb-1">数据库名称</label>
-                                    <input type="text" id="databaseName" th:field="*{databaseName}"
+                                    <label for="host" class="block text-xs font-medium text-gray-700 mb-1">主机IP</label>
+                                    <input type="text" id="host" name="host"
                                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                           placeholder="testdb">
-                                    <p th:if="${#fields.hasErrors('databaseName')}" th:errors="*{databaseName}" class="text-red-500 text-xs mt-1"></p>
+                                           placeholder="192.168.1.1">
+                                    <p id="host-error" class="text-red-500 text-xs mt-1 hidden">请输入有效的主机IP</p>
+                                </div>
+
+                                <div class="mb-2">
+                                    <label for="port" class="block text-xs font-medium text-gray-700 mb-1">端口</label>
+                                    <input type="number" id="port" name="port" min="1" max="65535" value="1433"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                           placeholder="1433">
+                                    <p id="port-error" class="text-red-500 text-xs mt-1 hidden">请输入有效的端口号</p>
                                 </div>
 
                                 <div class="mb-2">
                                     <label for="username" class="block text-xs font-medium text-gray-700 mb-1">用户名</label>
-                                    <input type="text" id="username" th:field="*{username}"
+                                    <input type="text" id="username" name="username"
                                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                           placeholder="root">
-                                    <p th:if="${#fields.hasErrors('username')}" th:errors="*{username}" class="text-red-500 text-xs mt-1"></p>
+                                           placeholder="sa">
                                 </div>
 
-                                <div class="mb-2">
+                                <div class="mb-3">
                                     <label for="password" class="block text-xs font-medium text-gray-700 mb-1">密码</label>
-                                    <input type="password" id="password" th:field="*{password}"
+                                    <input type="password" id="password" name="password"
                                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
                                            placeholder="password">
-                                    <p th:if="${#fields.hasErrors('password')}" th:errors="*{password}" class="text-red-500 text-xs mt-1"></p>
                                 </div>
 
                                 <div class="flex justify-end mt-3">
                                     <button type="button" id="cancel-add-database" class="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                         取消
                                     </button>
-                                    <button type="submit" class="ml-2 px-3 py-1 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                        添加
+                                    <button type="submit" id="test-connection" class="ml-2 px-3 py-1 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                        <i class="fa fa-check-circle mr-1"></i> 测试连接
                                     </button>
                                 </div>
+
+                                <!-- 数据库选择区域 (初始隐藏) -->
+                                <div id="database-selection" class="mt-4 hidden">
+                                    <h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">选择数据库</h4>
+                                    <div class="space-y-1 max-h-40 overflow-y-auto p-1 border border-gray-200 rounded-md">
+                                        <div id="databases-list" class="space-y-1">
+                                            <!-- 数据库列表将通过JavaScript动态生成 -->
+                                        </div>
+                                    </div>
+                                    <div class="flex justify-end mt-3">
+                                        <input type="hidden" id="selected-database" name="selected-database">
+                                        <button type="button" id="save-database" class="ml-2 px-3 py-1 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                            <i class="fa fa-save mr-1"></i> 保存配置
+                                        </button>
+                                    </div>
+                                </div>
                             </form>
-                        </div>
-
-                        <!-- 服务器上的所有数据库 -->
-                        <div>
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs font-medium text-gray-500">服务器数据库</span>
-                            </div>
-
-                            <div class="space-y-1 max-h-40 overflow-y-auto p-1">
-                                <a href="#" th:href="@{/switch-database/{name}(name=${database})}"
-                                   th:each="database : ${databases}"
-                                   class="block px-3 py-2 text-sm text-gray-700 rounded-md hover:bg-gray-100"
-                                   th:text="${database}">
-                                    information_schema
-                                </a>
-                            </div>
                         </div>
                     </div>
 
@@ -168,10 +176,10 @@
 
                             <form method="post" action="#" th:action="@{/execute}" id="sql-form">
                                 <div class="mb-3">
-                    <textarea id="sql-text" name="sql" rows="8"
-                              class="w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sql-editor text-sm"
-                              th:text="${sql}"
-                              placeholder="输入SQL语句...例如: SELECT * FROM users;"></textarea>
+                                    <textarea id="sql-text" name="sql" rows="8"
+                                              class="w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sql-editor text-sm"
+                                              th:text="${sql}"
+                                              placeholder="输入SQL语句...例如: SELECT * FROM users;"></textarea>
                                 </div>
 
                                 <div class="flex items-center">
@@ -179,8 +187,8 @@
                                         <option th:each="configKey : ${databaseConfigs.keySet()}"
                                                 th:value="${configKey}"
                                                 th:selected="${configKey == currentDatabase}"
-                                                th:text="${configKey + ' (' + (databaseConfigs[configKey]?.databaseName ?: '未知数据库') + ')'}">
-                                            default (mysql)
+                                                th:text="${configKey + ' (' + (databaseConfigs.get(configKey)?.databaseName ?: '未知数据库') + ')'}">
+                                            default (dsb)
                                         </option>
                                     </select>
 
@@ -212,7 +220,6 @@
                             </div>
 
                             <!-- 空状态 -->
-                            <!-- 修正后的空状态判断 -->
                             <div class="bg-gray-50 border border-gray-200 rounded-md p-6 text-sm text-gray-600 text-center"
                                  th:unless="${result != null || message != null || error != null}">
                                 <i class="fa fa-info-circle mr-1 text-blue-500"></i>
@@ -229,7 +236,7 @@
     <footer class="bg-white border-t border-gray-200 py-6 mt-6">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <p class="text-center text-sm text-gray-500">
-                © 2023 SQL执行器 - 一个简单的数据库管理工具
+                © 2025 SQL执行器 - 一个简单的数据库管理工具
             </p>
         </div>
     </footer>
@@ -262,6 +269,178 @@
             document.getElementById('sql-form').submit();
         }
     });
+
+    // 测试数据库连接并获取数据库列表
+    document.getElementById('test-connection').addEventListener('click', function() {
+        const host = document.getElementById('host').value.trim();
+        const port = document.getElementById('port').value.trim();
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+
+        // 简单验证
+        if (!host) {
+            document.getElementById('host-error').classList.remove('hidden');
+            return;
+        }
+        document.getElementById('host-error').classList.add('hidden');
+
+        if (!port || isNaN(port) || port < 1 || port > 65535) {
+            document.getElementById('port-error').classList.remove('hidden');
+            return;
+        }
+        document.getElementById('port-error').classList.add('hidden');
+
+        // 显示加载状态
+        this.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> 连接中...';
+        this.disabled = true;
+
+        // 发送AJAX请求到后端
+        fetch('/test-connection', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                host: host,
+                port: port,
+                username: username,
+                password: password
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                // 重置按钮状态
+                this.innerHTML = '<i class="fa fa-check-circle mr-1"></i> 测试连接';
+                this.disabled = false;
+
+                if (data.success) {
+                    // 显示数据库选择区域
+                    document.getElementById('database-selection').classList.remove('hidden');
+
+                    // 清空并填充数据库列表
+                    const databasesList = document.getElementById('databases-list');
+                    databasesList.innerHTML = '';
+
+                    data.databases.forEach(database => {
+                        const div = document.createElement('div');
+                        div.className = 'cursor-pointer px-3 py-2 text-sm text-gray-700 rounded-md hover:bg-gray-100';
+                        div.textContent = database;
+                        div.onclick = function() {
+                            // 选中效果
+                            document.querySelectorAll('#databases-list > div').forEach(el => {
+                                el.classList.remove('bg-blue-50', 'text-blue-700');
+                            });
+                            this.classList.add('bg-blue-50', 'text-blue-700');
+
+                            // 保存选中的数据库
+                            document.getElementById('selected-database').value = database;
+                        };
+                        databasesList.appendChild(div);
+                    });
+                } else {
+                    // 显示错误消息
+                    showMessage('连接失败: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                // 重置按钮状态
+                this.innerHTML = '<i class="fa fa-check-circle mr-1"></i> 测试连接';
+                this.disabled = false;
+
+                // 显示错误消息
+                showMessage('发生错误: ' + error.message, 'error');
+            });
+    });
+
+    // 保存数据库配置
+    document.getElementById('save-database').addEventListener('click', function() {
+        const host = document.getElementById('host').value.trim();
+        const port = document.getElementById('port').value.trim();
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        const selectedDatabase = document.querySelector('#databases-list > div.bg-blue-50')?.textContent;
+
+        if (!selectedDatabase) {
+            showMessage('请选择一个数据库', 'error');
+            return;
+        }
+
+        // 显示加载状态
+        this.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> 保存中...';
+        this.disabled = true;
+
+        // 发送AJAX请求到后端
+        fetch('/save-connection', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                host: host,
+                port: port,
+                username: username,
+                password: password,
+                database: selectedDatabase
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                // 重置按钮状态
+                this.innerHTML = '<i class="fa fa-save mr-1"></i> 保存配置';
+                this.disabled = false;
+
+                if (data.success) {
+                    // 隐藏表单
+                    document.getElementById('add-database-form').classList.add('hidden');
+
+                    // 刷新数据库列表
+                    refreshDatabaseList();
+
+                    // 显示成功消息
+                    showMessage('数据库配置已保存', 'success');
+                } else {
+                    // 显示错误消息
+                    showMessage('保存失败: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                // 重置按钮状态
+                this.innerHTML = '<i class="fa fa-save mr-1"></i> 保存配置';
+                this.disabled = false;
+
+                // 显示错误消息
+                showMessage('发生错误: ' + error.message, 'error');
+            });
+    });
+
+    // 辅助函数：显示消息
+    function showMessage(message, type = 'success') {
+        const container = document.getElementById('message-container');
+        container.innerHTML = '';
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = type === 'success'
+            ? 'bg-green-50 border border-green-400 text-green-700 px-4 py-3 rounded relative'
+            : 'bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded relative';
+
+        messageDiv.innerHTML = `
+            <strong class="font-bold">${type === 'success' ? '成功!' : '错误!'}</strong>
+            <span class="block sm:inline">${message}</span>
+        `;
+
+        container.appendChild(messageDiv);
+
+        // 5秒后自动移除
+        setTimeout(() => {
+            messageDiv.remove();
+        }, 5000);
+    }
+
+    // 刷新数据库列表
+    function refreshDatabaseList() {
+        // 简单实现：刷新页面
+        location.reload();
+    }
 </script>
 </body>
 </html>

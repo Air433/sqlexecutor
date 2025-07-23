@@ -5,6 +5,8 @@ import com.dsb.sqlexecutor.service.SqlExecutorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -12,6 +14,11 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.*;
 
 @Controller
@@ -129,11 +136,114 @@ public class SqlExecutorController {
         // 填充页面数据
         model.addAttribute("sql", "");
         model.addAttribute("result", null);
-        model.addAttribute("databaseConfig", new DatabaseConfig());
+        model.addAttribute("databaseConfig",  sqlExecutorService.getCurrentDatabaseConfig());
         model.addAttribute("databaseConfigs", sqlExecutorService.getAllDatabaseConfigs());
         model.addAttribute("databases", sqlExecutorService.getDatabases());
         model.addAttribute("currentDatabase", sqlExecutorService.getCurrentDatabase());
 
         return "index";
+    }
+
+
+    // 测试数据库连接并获取数据库列表
+    @PostMapping("/test-connection")
+    public ResponseEntity<Map<String, Object>> testConnection(@RequestBody Map<String, String> request) {
+        Map result = new HashMap<>();
+        try {
+            String host = request.get("host");
+            String portStr = request.get("port");
+            String username = request.get("username");
+            String password = request.get("password");
+
+            // 解析端口
+            int port = 1433; // 默认端口
+            if (portStr != null && !portStr.isEmpty()) {
+                port = Integer.parseInt(portStr);
+            }
+
+            // 创建临时连接
+            String jdbcUrl = "jdbc:sqlserver://" + host + ":" + port+ ";encrypt=true;trustServerCertificate=true";
+            DataSource dataSource = createDataSource(jdbcUrl, username, password);
+
+            // 测试连接
+            try (Connection connection = dataSource.getConnection()) {
+                // 获取数据库列表
+                List<String> databases = getDatabases(connection);
+
+                result.put("success", true);
+                result.put("databases", databases);
+                return ResponseEntity.ok(result);
+            }
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(result);
+        }
+
+
+    }
+
+    // 保存数据库配置
+    @PostMapping("/save-connection")
+    public ResponseEntity<Map<String, Object>> saveConnection(@RequestBody Map<String, String> request) {
+        Map<String, Object> result = new HashMap<>();
+
+        try {
+            String host = request.get("host");
+            String portStr = request.get("port");
+            String username = request.get("username");
+            String password = request.get("password");
+            String database = request.get("database");
+
+            // 解析端口
+            int port = 1433; // 默认端口
+            if (portStr != null && !portStr.isEmpty()) {
+                port = Integer.parseInt(portStr);
+            }
+
+            // 生成连接名称
+            String connectionName = host + "_" + database;
+
+            // 创建数据库配置
+            DatabaseConfig config = new DatabaseConfig();
+            config.setDatabaseName(database);
+            config.setUsername(username);
+            config.setPassword(password);
+            config.setJdbcUrl("jdbc:sqlserver://" + host + ":" + port + ";databaseName=" + database + ";encrypt=true;trustServerCertificate=true");
+
+            // 保存配置
+            sqlExecutorService.addDatabaseConfig(connectionName, config);
+
+            result.put("success", true);
+            result.put("message", "数据库配置已保存");
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(result);
+        }
+    }
+
+    // 创建数据源
+    private DataSource createDataSource(String url, String username, String password) {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setDriverClassName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+        dataSource.setUrl(url);
+        dataSource.setUsername(username);
+        dataSource.setPassword(password);
+        return dataSource;
+    }
+
+    // 获取数据库列表
+    private List<String> getDatabases(Connection connection) throws SQLException {
+        List<String> databases = new ArrayList<>();
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT name FROM sys.databases")) {
+
+            while (rs.next()) {
+                databases.add(rs.getString("name"));
+            }
+        }
+        return databases;
     }
 }

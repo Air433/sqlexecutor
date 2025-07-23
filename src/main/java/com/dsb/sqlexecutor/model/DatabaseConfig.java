@@ -94,4 +94,19 @@ public class DatabaseConfig {
 
         return url.toString();
     }
+
+    public String generateJdbcUrl(String databaseName) {
+        StringBuilder url = new StringBuilder();
+        url.append("jdbc:sqlserver://")
+                .append(host)
+                .append(":")
+                .append(port)
+                .append(";databaseName=")
+                .append(databaseName);
+
+        // 添加SQL Server特有的参数
+        url.append(";encrypt=true;trustServerCertificate=true");
+
+        return url.toString();
+    }
 }
