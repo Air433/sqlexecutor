@@ -17,10 +17,10 @@ public class SqlExecutorRepository {
 
     private JdbcTemplate jdbcTemplate;
 
-    @Autowired
-    public SqlExecutorRepository(DataSource dataSource) {
-        this.jdbcTemplate = new JdbcTemplate(dataSource);
-    }
+//    @Autowired
+//    public SqlExecutorRepository(DataSource dataSource) {
+//        this.jdbcTemplate = new JdbcTemplate(dataSource);
+//    }
 
     // 切换数据源
     public void setDataSource(DataSource dataSource) {

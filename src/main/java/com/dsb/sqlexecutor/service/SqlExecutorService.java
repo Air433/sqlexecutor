@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,36 +50,36 @@ public class SqlExecutorService {
     @Value("${spring.datasource.password}")
     private String password;
 
-    @PostConstruct
-    public void init() {
-        // 使用 application.properties 中的配置作为默认配置
-        DatabaseConfig defaultConfig = new DatabaseConfig();
-        // 从 JDBC URL 中提取数据库名、主机和端口
-        String[] parts = jdbcUrl.split(";");
-        String databaseName = null;
-        String host = null;
-        int port = 0;
-        for (String part : parts) {
-            if (part.startsWith("databaseName=")) {
-                databaseName = part.substring("databaseName=".length());
-            } else if (part.startsWith("jdbc:sqlserver://")) {
-                String hostPort = part.substring("jdbc:sqlserver://".length());
-                String[] hostPortParts = hostPort.split(":");
-                host = hostPortParts[0];
-                port = Integer.parseInt(hostPortParts[1]);
-            }
-        }
-        defaultConfig.setDatabaseName(databaseName);
-        defaultConfig.setUsername(username);
-        defaultConfig.setPassword(password);
-        defaultConfig.setHost(host);
-        defaultConfig.setPort(port);
-        defaultConfig.setJdbcUrl(jdbcUrl);
-
-        databaseConfigMap.put("default", defaultConfig);
-        currentDatabase = "default";
-        switchDatabase("default");
-    }
+//    @PostConstruct
+//    public void init() {
+//        // 使用 application.properties 中的配置作为默认配置
+//        DatabaseConfig defaultConfig = new DatabaseConfig();
+//        // 从 JDBC URL 中提取数据库名、主机和端口
+//        String[] parts = jdbcUrl.split(";");
+//        String databaseName = null;
+//        String host = null;
+//        int port = 0;
+//        for (String part : parts) {
+//            if (part.startsWith("databaseName=")) {
+//                databaseName = part.substring("databaseName=".length());
+//            } else if (part.startsWith("jdbc:sqlserver://")) {
+//                String hostPort = part.substring("jdbc:sqlserver://".length());
+//                String[] hostPortParts = hostPort.split(":");
+//                host = hostPortParts[0];
+//                port = Integer.parseInt(hostPortParts[1]);
+//            }
+//        }
+//        defaultConfig.setDatabaseName(databaseName);
+//        defaultConfig.setUsername(username);
+//        defaultConfig.setPassword(password);
+//        defaultConfig.setHost(host);
+//        defaultConfig.setPort(port);
+//        defaultConfig.setJdbcUrl(jdbcUrl);
+//
+//        databaseConfigMap.put("default", defaultConfig);
+//        currentDatabase = "default";
+//        switchDatabase("default");
+//    }
 
 
     // 在依赖注入完成后执行初始化
@@ -155,7 +156,8 @@ public class SqlExecutorService {
     // 获取数据库列表
     public List<String> getDatabases() {
         if (!hasValidDatabaseConfig()) {
-            throw new IllegalStateException("请先选择或添加数据库配置");
+            return Collections.emptyList();
+//            throw new IllegalStateException("请先选择或添加数据库配置");
         }
         return sqlExecutorRepository.getDatabases();
     }
