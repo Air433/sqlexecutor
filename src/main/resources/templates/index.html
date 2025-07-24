@@ -48,32 +48,31 @@
             .resizing {
                 background-color: #ccc;
             }
+            .scroll-container {
+                width: 1500px;
+                height: 500px;
+                overflow: auto;
+                border: 1px solid #ccc;
+            }
+            /* 历史记录样式 */
+            .sql-history-item {
+                position: relative;
+            }
+            .sql-history-item .delete-history {
+                position: absolute;
+                right: 5px;
+                top: 50%;
+                transform: translateY(-50%);
+                opacity: 0;
+                transition: opacity 0.2s;
+                cursor: pointer;
+            }
+            .sql-history-item:hover .delete-history {
+                opacity: 1;
+            }
         }
     </style>
-    <style>
-        .scroll-container {
-            width: 1500px;
-            height: 500px;
-            overflow: auto;
-            border: 1px solid #ccc;
-        }
-        /* 历史记录样式 */
-        .sql-history-item {
-            position: relative;
-        }
-        .sql-history-item .delete-history {
-            position: absolute;
-            right: 5px;
-            top: 50%;
-            transform: translateY(-50%);
-            opacity: 0;
-            transition: opacity 0.2s;
-            cursor: pointer;
-        }
-        .sql-history-item:hover .delete-history {
-            opacity: 1;
-        }
-    </style>
+
 </head>
 <body class="bg-gray-50 font-sans">
 <div class="min-h-screen flex flex-col">
