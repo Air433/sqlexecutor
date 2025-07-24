@@ -2,19 +2,25 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>SQL执行器</title>
-    <!-- 引入Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入Font Awesome -->
-    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <title>SQL 执行器</title>
+    <!-- 引入外部资源 -->
+<!--    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.11/codemirror.min.js"></script>-->
+<!--    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.11/codemirror.min.css">-->
+<!--    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.11/mode/sql/sql.min.js"></script>-->
+<!--    <script src="https://cdn.tailwindcss.com"></script>-->
+<!--    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">-->
+
+    <!-- 引入本地资源 -->
+    <script src="/js/codemirror.js"></script>
+    <link rel="stylesheet" href="/css/codemirror.css">
+    <script src="/js/sql.min.js"></script>
+    <script src="/js/tailwind.js"></script>
+    <link href="/css/font-awesome.min.css" rel="stylesheet">
 
     <style type="text/tailwindcss">
         @layer utilities {
             .content-auto {
                 content-visibility: auto;
-            }
-            .sql-editor {
-                font-family: Consolas, Monaco, 'Andale Mono', monospace;
             }
             .result-table {
                 @apply min-w-full divide-y divide-gray-200;
@@ -26,13 +32,12 @@
             }
             .result-table td {
                 @apply px-4 py-2 whitespace-nowrap text-sm text-gray-700;
-                max-width: 300px; /* 设置单元格最大宽度 */
-                overflow-x: auto; /* 超出宽度时显示水平滚动条 */
+                max-width: 300px;
+                overflow-x: auto;
             }
             .result-table tr:nth-child(even) {
                 @apply bg-gray-50;
             }
-            /* 表头调整手柄 */
             .resizer {
                 position: absolute;
                 top: 0;
@@ -42,34 +47,55 @@
                 background-color: transparent;
                 cursor: col-resize;
                 user-select: none;
-                touch-action: none;
             }
-            .resizer:hover,
-            .resizing {
+            .resizer:hover, .resizing {
                 background-color: #ccc;
             }
-            .scroll-container {
-                width: 1500px;
-                height: 500px;
-                overflow: auto;
-                border: 1px solid #ccc;
-            }
-            /* 历史记录样式 */
-            .sql-history-item {
-                position: relative;
-            }
-            .sql-history-item .delete-history {
-                position: absolute;
-                right: 5px;
-                top: 50%;
-                transform: translateY(-50%);
-                opacity: 0;
-                transition: opacity 0.2s;
-                cursor: pointer;
-            }
-            .sql-history-item:hover .delete-history {
-                opacity: 1;
-            }
+        }
+    </style>
+    <style>
+        .scroll-container {
+            width: 100%;
+            max-width: 1600px;
+            height: 800px;
+            overflow: auto;
+            border: 1px solid #ccc;
+        }
+        .sql-history-item {
+            position: relative;
+        }
+        .sql-history-item .delete-history {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.2s;
+            cursor: pointer;
+        }
+        .sql-history-item:hover .delete-history {
+            opacity: 1;
+        }
+        #sql-editor {
+            min-height: 300px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .CodeMirror {
+            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+            font-size: 14px;
+            height: auto !important;
+            border-radius: 4px;
+        }
+        .CodeMirror-cursor {
+            border-left: 2px solid #2563eb !important;
+        }
+        /* 关键修复：确保按钮容器不被隐藏 */
+        .button-group {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 0.5rem !important;
+            min-width: 140px !important; /* 确保按钮组有足够宽度 */
         }
     </style>
 
@@ -83,7 +109,7 @@
                 <div class="flex items-center">
                         <span class="text-xl font-bold text-blue-600 flex items-center">
                             <i class="fa fa-database mr-2"></i>
-                            SQL执行器
+                            SQL 执行器
                         </span>
                 </div>
             </div>
@@ -108,11 +134,11 @@
 
             <div class="bg-white rounded-lg shadow-md overflow-hidden">
                 <div class="flex flex-col md:flex-row">
-                    <!-- 左侧面板 - 数据库选择 -->
+                    <!-- 左侧面板 - 数据库配置 -->
                     <div class="w-full md:w-64 bg-gray-50 border-r border-gray-200 p-4">
+                        <!-- 左侧内容保持不变 -->
                         <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4">数据库配置</h3>
 
-                        <!-- 已配置的数据库 -->
                         <div class="mb-6">
                             <div class="flex items-center justify-between mb-2">
                                 <span class="text-xs font-medium text-gray-500">已配置的数据库</span>
@@ -131,17 +157,16 @@
                             </div>
                         </div>
 
-                        <!-- 添加新数据库配置表单 -->
                         <div id="add-database-form" class="hidden mb-6 p-3 bg-white rounded-md border border-gray-200">
                             <h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-3">添加数据库连接</h4>
 
                             <form method="post" id="add-database-connection" onsubmit="return false;">
                                 <div class="mb-2">
-                                    <label for="host" class="block text-xs font-medium text-gray-700 mb-1">主机IP</label>
+                                    <label for="host" class="block text-xs font-medium text-gray-700 mb-1">主机 IP</label>
                                     <input type="text" id="host" name="host"
                                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
                                            placeholder="192.168.1.1">
-                                    <p id="host-error" class="text-red-500 text-xs mt-1 hidden">请输入有效的主机IP</p>
+                                    <p id="host-error" class="text-red-500 text-xs mt-1 hidden">请输入有效的主机 IP</p>
                                 </div>
 
                                 <div class="mb-2">
@@ -159,28 +184,27 @@
                                            placeholder="sa">
                                 </div>
 
-                                <div class="mb-3">
+                                <div class="mb-2">
                                     <label for="password" class="block text-xs font-medium text-gray-700 mb-1">密码</label>
                                     <input type="password" id="password" name="password"
                                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                           placeholder="password">
+                                           placeholder="123456">
                                 </div>
 
-                                <div class="flex justify-end mt-3">
-                                    <button type="button" id="cancel-add-database" class="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                        取消
+                                <div class="flex justify-end">
+                                    <button type="button" id="cancel-add-database" class="px-3 py-1 border border-transparent rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                        <i class="fa fa-times mr-1"></i> 取消
                                     </button>
                                     <button type="submit" id="test-connection" class="ml-2 px-3 py-1 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                         <i class="fa fa-check-circle mr-1"></i> 测试连接
                                     </button>
                                 </div>
 
-                                <!-- 数据库选择区域 (初始隐藏) -->
                                 <div id="database-selection" class="mt-4 hidden">
                                     <h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">选择数据库</h4>
                                     <div class="space-y-1 max-h-40 overflow-y-auto p-1 border border-gray-200 rounded-md">
                                         <div id="databases-list" class="space-y-1">
-                                            <!-- 数据库列表将通过JavaScript动态生成 -->
+                                            <!-- 数据库列表将通过 JavaScript 动态生成 -->
                                         </div>
                                     </div>
                                     <div class="flex justify-end mt-3">
@@ -193,10 +217,9 @@
                             </form>
                         </div>
 
-                        <!-- SQL历史记录 -->
                         <div class="mt-6">
                             <div class="flex items-center justify-between mb-2">
-                                <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">SQL历史记录</h3>
+                                <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">SQL 历史记录</h3>
                                 <button id="clear-all-history" class="text-red-500 hover:text-red-700 text-xs flex items-center">
                                     <i class="fa fa-trash mr-1"></i> 清空
                                 </button>
@@ -205,31 +228,31 @@
                         </div>
                     </div>
 
-                    <!-- 右侧面板 - SQL编辑器和结果 -->
-                    <div class="flex-1 p-6">
+                    <!-- 右侧面板 - SQL 编辑器和结果 -->
+                    <div class="flex-1 p-6 overflow-hidden">
                         <div class="mb-6">
-                            <div class="flex items-center justify-between mb-3">
-                                <h3 class="text-lg font-medium text-gray-900">SQL编辑器</h3>
-                                <div class="flex space-x-2">
+                            <!-- 关键修复：修改按钮容器，为右上角执行按钮添加ID -->
+                            <div class="flex flex-wrap justify-between items-center mb-3 gap-2">
+                                <h3 class="text-lg font-medium text-gray-900">SQL 编辑器</h3>
+                                <div class="button-group flex space-x-2">
                                     <button id="clear-sql" class="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                         <i class="fa fa-eraser mr-1"></i> 清空
                                     </button>
-                                    <button name="execute-sql" class="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    <button id="top-execute-btn" name="execute-sql" class="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                         <i class="fa fa-play mr-1"></i> 执行
                                     </button>
                                 </div>
                             </div>
 
-                            <form method="post" action="#" th:action="@{/execute}" id="sql-form">
+                            <form method="post" id="sql-form" onsubmit="executeSql(); return false;">
+                                <input type="hidden" id="sql" name="sql">
                                 <div class="mb-3">
-                                    <textarea id="sql-text" name="sql" rows="8"
-                                              class="w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sql-editor text-sm"
-                                              th:text="${sql}"
-                                              placeholder="输入SQL语句...例如: SELECT * FROM users;"></textarea>
+                                    <div id="sql-editor"></div>
                                 </div>
 
-                                <div class="flex items-center">
-                                    <select name="database" class="mr-3 border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                                <!-- 关键修复：修改底部按钮布局 -->
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <select name="database" class="min-w-[180px] border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
                                         <option th:each="configKey : ${databaseConfigs.keySet()}"
                                                 th:value="${configKey}"
                                                 th:selected="${configKey == currentDatabase}"
@@ -237,19 +260,16 @@
                                             default (dsb)
                                         </option>
                                     </select>
-
-                                    <button name="execute-sql" type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                        <i class="fa fa-play mr-1"></i> 执行SQL
+                                    <button name="execute-sql" type="submit" class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                        <i class="fa fa-play mr-1"></i> 执行 SQL
                                     </button>
                                 </div>
                             </form>
                         </div>
 
-                        <!-- 结果区域 -->
-                        <div>
+                        <div id="result-section">
                             <h3 class="text-lg font-medium text-gray-900 mb-3">执行结果</h3>
 
-                            <!-- 查询结果表格 -->
                             <div th:if="${result}" class="scroll-container overflow-x-auto bg-white rounded-md border border-gray-200">
                                 <table class="result-table">
                                     <thead>
@@ -258,18 +278,17 @@
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    <tr th:each="row : ${result}">
+                                    <tr th:if="${result.size() > 0}" th:each="row : ${result}">
                                         <td th:each="value : ${row.values()}" th:text="${value}">1</td>
                                     </tr>
                                     </tbody>
                                 </table>
                             </div>
 
-                            <!-- 空状态 -->
                             <div class="bg-gray-50 border border-gray-200 rounded-md p-6 text-sm text-gray-600 text-center"
                                  th:unless="${result != null || message != null || error != null}">
                                 <i class="fa fa-info-circle mr-1 text-blue-500"></i>
-                                <span>执行SQL查询后结果将显示在这里</span>
+                                <span>执行 SQL 查询后结果将显示在这里</span>
                             </div>
                         </div>
                     </div>
@@ -278,396 +297,483 @@
         </div>
     </main>
 
-    <!-- 页脚 -->
     <footer class="bg-white border-t border-gray-200 py-6 mt-6">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <p class="text-center text-sm text-gray-500">
-                © 2025 SQL执行器 - 一个简单的数据库管理工具
+                © 2025 SQL 执行器 - 一个简单的数据库管理工具
             </p>
         </div>
     </footer>
 </div>
 
 <script>
-    // 显示/隐藏添加数据库表单
-    document.getElementById('add-database-btn').addEventListener('click', function() {
-        document.getElementById('add-database-form').classList.remove('hidden');
+    // JavaScript 代码保持不变
+    let editor;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        initSqlEditor();
+
+        const initialSql = /*[[${sql}]]*/ '';
+        if (initialSql) {
+            editor.setValue(initialSql);
+        }
+
+        displaySqlHistory();
+        initTableResizers();
+        bindDatabaseEvents();
     });
 
-    document.getElementById('cancel-add-database').addEventListener('click', function() {
-        document.getElementById('add-database-form').classList.add('hidden');
-    });
-
-    // 清空SQL编辑器
-    document.getElementById('clear-sql').addEventListener('click', function() {
-        document.getElementById('sql-text').value = '';
-    });
-
-    // 执行SQL
-    document.getElementsByName('execute-sql').forEach(executeSqlbutton =>{
-        executeSqlbutton.addEventListener('click', function() {
-            const sql = document.getElementById('sql-text').value.trim();
-            if (sql) {
-                saveSqlToHistory(sql);
-                document.getElementById('sql-form').submit();
-            } else {
-                showMessage('请输入SQL语句', 'error');
+    function initSqlEditor() {
+        editor = CodeMirror(document.getElementById('sql-editor'), {
+            value: '',
+            mode: 'text/x-sql',
+            lineNumbers: true,
+            indentUnit: 4,
+            smartIndent: true,
+            matchBrackets: true,
+            autofocus: true,
+            lineWrapping: false,
+            extraKeys: {
+                'Ctrl-Enter': executeSql
             }
         });
-    })
 
+        editor.setSize(null, '300px');
 
-    // 按Ctrl+Enter执行SQL
-    document.getElementById('sql-text').addEventListener('keydown', function(e) {
-        if (e.ctrlKey && e.key === 'Enter') {
-            e.preventDefault();
-            const sql = this.value.trim();
-            if (sql) {
-                saveSqlToHistory(sql);
-                document.getElementById('sql-form').submit();
-            } else {
-                showMessage('请输入SQL语句', 'error');
-            }
-        }
-    });
+        document.getElementById('clear-sql').addEventListener('click', function() {
+            editor.setValue('');
+        });
+    }
 
-    // 测试数据库连接并获取数据库列表
-    document.getElementById('test-connection').addEventListener('click', function() {
-        const host = document.getElementById('host').value.trim();
-        const port = document.getElementById('port').value.trim();
-        const username = document.getElementById('username').value.trim();
-        const password = document.getElementById('password').value;
-
-        // 简单验证
-        if (!host) {
-            document.getElementById('host-error').classList.remove('hidden');
+    function executeSql() {
+        const sql = editor.getValue().trim();
+        if (!sql) {
+            showToast('请输入 SQL 语句', 'error');
             return;
         }
-        document.getElementById('host-error').classList.add('hidden');
 
-        if (!port || isNaN(port) || port < 1 || port > 65535) {
-            document.getElementById('port-error').classList.remove('hidden');
-            return;
-        }
-        document.getElementById('port-error').classList.add('hidden');
+        saveSqlToHistory(sql);
 
-        // 显示加载状态
-        this.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> 连接中...';
-        this.disabled = true;
+        const database = document.querySelector('[name="database"]').value;
 
-        // 发送AJAX请求到后端
-        fetch('/test-connection', {
+        // 显示加载提示（不自动消失）
+        const loadingToast = showToast('正在执行 SQL...', 'loading');
+
+        fetch('/execute', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: JSON.stringify({
-                host: host,
-                port: port,
-                username: username,
-                password: password
-            })
+            body: `sql=${encodeURIComponent(sql)}&database=${encodeURIComponent(database)}`
         })
-            .then(response => response.json())
-            .then(data => {
-                // 重置按钮状态
-                this.innerHTML = '<i class="fa fa-check-circle mr-1"></i> 测试连接';
-                this.disabled = false;
+            .then(response => {
+                // 关闭加载提示
+                closeToast(loadingToast);
 
-                if (data.success) {
-                    // 显示数据库选择区域
-                    document.getElementById('database-selection').classList.remove('hidden');
+                if (!response.ok) {
+                    throw new Error(`服务器返回错误: ${response.status} ${response.statusText}`);
+                }
+                return response.text();
+            })
+            .then(html => {
+                const tempContainer = document.createElement('div');
+                tempContainer.innerHTML = html;
 
-                    // 清空并填充数据库列表
-                    const databasesList = document.getElementById('databases-list');
-                    databasesList.innerHTML = '';
+                const errorElement = tempContainer.querySelector('.bg-red-50');
+                if (errorElement) {
+                    const errorMsg = errorElement.textContent.trim();
+                    throw new Error(errorMsg);
+                }
 
-                    data.databases.forEach(database => {
-                        const div = document.createElement('div');
-                        div.className = 'cursor-pointer px-3 py-2 text-sm text-gray-700 rounded-md hover:bg-gray-100';
-                        div.textContent = database;
-                        div.onclick = function() {
-                            // 选中效果
-                            document.querySelectorAll('#databases-list > div').forEach(el => {
-                                el.classList.remove('bg-blue-50', 'text-blue-700');
-                            });
-                            this.classList.add('bg-blue-50', 'text-blue-700');
+                const successElement = tempContainer.querySelector('.bg-green-50');
+                if (successElement) {
+                    const successMsg = successElement.textContent.trim();
+                    showToast(successMsg, 'success');
+                }
 
-                            // 保存选中的数据库
-                            document.getElementById('selected-database').value = database;
-                        };
-                        databasesList.appendChild(div);
-                    });
+                const resultContainer = document.querySelector('.scroll-container');
+                if (resultContainer) {
+                    resultContainer.innerHTML = tempContainer.querySelector('.scroll-container')?.innerHTML || '';
+                    initTableResizers();
                 } else {
-                    // 显示错误消息
-                    showMessage('连接失败: ' + data.message, 'error');
+                    const resultSection = document.querySelector('#result-section');
+                    if (resultSection) {
+                        resultSection.innerHTML = tempContainer.querySelector('#result-section')?.innerHTML || resultSection.innerHTML;
+                        initTableResizers();
+                    }
                 }
             })
             .catch(error => {
-                // 重置按钮状态
-                this.innerHTML = '<i class="fa fa-check-circle mr-1"></i> 测试连接';
-                this.disabled = false;
+                // 关闭加载提示
+                closeToast(loadingToast);
 
-                // 显示错误消息
-                showMessage('发生错误: ' + error.message, 'error');
-            });
-    });
-
-    // 保存数据库配置
-    document.getElementById('save-database').addEventListener('click', function() {
-        const host = document.getElementById('host').value.trim();
-        const port = document.getElementById('port').value.trim();
-        const username = document.getElementById('username').value.trim();
-        const password = document.getElementById('password').value;
-        const selectedDatabase = document.querySelector('#databases-list > div.bg-blue-50')?.textContent;
-
-        if (!selectedDatabase) {
-            showMessage('请选择一个数据库', 'error');
-            return;
-        }
-
-        // 显示加载状态
-        this.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> 保存中...';
-        this.disabled = true;
-
-        // 发送AJAX请求到后端
-        fetch('/save-connection', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                host: host,
-                port: port,
-                username: username,
-                password: password,
-                database: selectedDatabase
-            })
-        })
-            .then(response => response.json())
-            .then(data => {
-                // 重置按钮状态
-                this.innerHTML = '<i class="fa fa-save mr-1"></i> 保存配置';
-                this.disabled = false;
-
-                if (data.success) {
-                    // 隐藏表单
-                    document.getElementById('add-database-form').classList.add('hidden');
-
-                    // 刷新数据库列表
-                    refreshDatabaseList();
-
-                    // 显示成功消息
-                    showMessage('数据库配置已保存', 'success');
-                } else {
-                    // 显示错误消息
-                    showMessage('保存失败: ' + data.message, 'error');
+                // 清空结果区域
+                const resultContainer = document.querySelector('.scroll-container');
+                if (resultContainer) {
+                    resultContainer.innerHTML = '';
                 }
-            })
-            .catch(error => {
-                // 重置按钮状态
-                this.innerHTML = '<i class="fa fa-save mr-1"></i> 保存配置';
-                this.disabled = false;
 
-                // 显示错误消息
-                showMessage('发生错误: ' + error.message, 'error');
+                showToast(error.message, 'error', 30000);
             });
-    });
+    }
 
-    // 辅助函数：显示消息
-    function showMessage(message, type = 'success') {
+    function showMessage(message, type = 'error') {
         const container = document.getElementById('message-container');
         container.innerHTML = '';
 
-        const messageDiv = document.createElement('div');
-        messageDiv.className = type === 'success'
-            ? 'bg-green-50 border border-green-400 text-green-700 px-4 py-3 rounded relative'
-            : 'bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded relative';
+        let bgColor, textColor, borderColor, icon;
 
-        messageDiv.innerHTML = `
-            <strong class="font-bold">${type === 'success' ? '成功!' : '错误!'}</strong>
-            <span class="block sm:inline">${message}</span>
-        `;
-
-        container.appendChild(messageDiv);
-
-        // 5秒后自动移除
-        setTimeout(() => {
-            messageDiv.remove();
-        }, 5000);
-    }
-
-    // 刷新数据库列表
-    function refreshDatabaseList() {
-        // 简单实现：刷新页面
-        location.reload();
-    }
-
-    // 保存SQL到历史记录
-    function saveSqlToHistory(sql) {
-        let history = JSON.parse(localStorage.getItem('sqlHistory')) || [];
-
-        // 检查是否已有相同的SQL语句
-        const index = history.findIndex(item => item.sql === sql);
-        if (index !== -1) {
-            // 如果已有，移除原有的，后面会重新添加到最前面
-            history.splice(index, 1);
+        switch(type) {
+            case 'success':
+                bgColor = 'bg-green-50';
+                textColor = 'text-green-700';
+                borderColor = 'border-green-400';
+                icon = 'fa-check-circle';
+                break;
+            case 'error':
+                bgColor = 'bg-red-50';
+                textColor = 'text-red-700';
+                borderColor = 'border-red-400';
+                icon = 'fa-exclamation-circle';
+                break;
+            case 'loading':
+                bgColor = 'bg-blue-50';
+                textColor = 'text-blue-700';
+                borderColor = 'border-blue-400';
+                icon = 'fa-spinner fa-spin';
+                break;
+            default:
+                bgColor = 'bg-gray-50';
+                textColor = 'text-gray-700';
+                borderColor = 'border-gray-400';
+                icon = 'fa-info-circle';
         }
 
-        // 添加到历史记录的最前面
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `${bgColor} ${borderColor} ${textColor} px-4 py-3 rounded mb-2 border`;
+        msgDiv.innerHTML = `
+            <strong class="font-bold">
+                <i class="fa ${icon} mr-1"></i>
+                ${type === 'success' ? '成功' : type === 'error' ? '错误' : '加载中'}:
+            </strong>
+            <span>${message}</span>
+        `;
+        container.appendChild(msgDiv);
+
+        if (type !== 'loading') {
+            setTimeout(() => msgDiv.remove(), 5000);
+        }
+    }
+
+    function saveSqlToHistory(sql) {
+        let history = JSON.parse(localStorage.getItem('sqlHistory') || '[]');
+        const index = history.findIndex(item => item.sql === sql);
+        if (index > -1) {
+            history.splice(index, 1);
+        }
         history.unshift({
             sql: sql,
-            timestamp: new Date().getTime()
+            time: new Date().toISOString()
         });
-
-        // 限制历史记录数量为10条
         if (history.length > 20) {
             history = history.slice(0, 20);
         }
-
-        // 保存到localStorage
         localStorage.setItem('sqlHistory', JSON.stringify(history));
-
-        // 更新历史记录显示
         displaySqlHistory();
     }
 
-    // 显示SQL历史记录
     function displaySqlHistory() {
-        const history = JSON.parse(localStorage.getItem('sqlHistory')) || [];
-        const historyDiv = document.getElementById('sql-history');
-        historyDiv.innerHTML = '';
+        const history = JSON.parse(localStorage.getItem('sqlHistory') || '[]');
+        const container = document.getElementById('sql-history');
+        container.innerHTML = '';
 
         if (history.length === 0) {
-            historyDiv.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500 italic">暂无历史记录</div>';
+            container.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500 italic">暂无历史记录</div>';
             return;
         }
 
         history.forEach((item, index) => {
             const div = document.createElement('div');
-            div.className = 'sql-history-item block px-3 py-2 text-sm text-gray-700 rounded-md hover:bg-gray-100 relative';
-
-            // 格式化时间
-            const date = new Date(item.timestamp);
-            const formattedTime = `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-
-            // 显示SQL和时间
+            div.className = 'sql-history-item block px-3 py-2 text-sm text-gray-700 rounded-md hover:bg-gray-100';
             div.innerHTML = `
-                <div class="mb-1 truncate">${item.sql}</div>
-                <div class="text-xs text-gray-500">${formattedTime}</div>
+                <div class="truncate">${item.sql}</div>
+                <div class="text-xs text-gray-500">${formatTime(item.time)}</div>
                 <span class="delete-history text-red-500" data-index="${index}">
                     <i class="fa fa-times-circle"></i>
                 </span>
             `;
-
-            // 点击历史记录填充SQL
             div.addEventListener('click', function(e) {
-                // 如果点击的是删除按钮，不执行填充操作
-                if (e.target.closest('.delete-history')) return;
-
-                document.getElementById('sql-text').value = item.sql;
+                if (!e.target.closest('.delete-history')) {
+                    editor.setValue(item.sql);
+                }
             });
-
-            historyDiv.appendChild(div);
+            container.appendChild(div);
         });
 
-        // 添加删除历史记录事件
         document.querySelectorAll('.delete-history').forEach(btn => {
             btn.addEventListener('click', function(e) {
-                e.stopPropagation(); // 阻止事件冒泡到父元素
+                e.stopPropagation();
                 const index = parseInt(this.getAttribute('data-index'));
-                deleteSqlHistory(index);
+                let history = JSON.parse(localStorage.getItem('sqlHistory') || '[]');
+                history.splice(index, 1);
+                localStorage.setItem('sqlHistory', JSON.stringify(history));
+                displaySqlHistory();
             });
         });
     }
 
-    // 删除单条SQL历史记录
-    function deleteSqlHistory(index) {
-        let history = JSON.parse(localStorage.getItem('sqlHistory')) || [];
-        if (index >= 0 && index < history.length) {
-            history.splice(index, 1);
-            localStorage.setItem('sqlHistory', JSON.stringify(history));
-            displaySqlHistory();
-        }
+    function formatTime(timeStr) {
+        const date = new Date(timeStr);
+        return date.toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     }
 
-    // 清空所有SQL历史记录
-    document.getElementById('clear-all-history').addEventListener('click', function() {
-        if (confirm('确定要清空所有SQL历史记录吗？')) {
-            localStorage.removeItem('sqlHistory');
-            displaySqlHistory();
-        }
-    });
-
-    // 初始化表格列宽调整功能
     function initTableResizers() {
         const table = document.querySelector('.result-table');
         if (!table) return;
 
-        const cols = table.querySelectorAll('th');
-        cols.forEach(col => {
-            // 创建调整手柄
+        table.style.tableLayout = 'fixed';
+
+        table.querySelectorAll('.resizer').forEach(resizer => resizer.remove());
+
+        table.querySelectorAll('th').forEach((th, index) => {
+            if (index === table.querySelectorAll('th').length - 1) return;
+
             const resizer = document.createElement('div');
             resizer.className = 'resizer';
-            col.appendChild(resizer);
+            th.appendChild(resizer);
 
-            // 记录初始状态
-            let startX, startWidth;
+            let startX, startWidth, startClientX;
+            let resizing = false;
 
-            // 鼠标按下事件
             resizer.addEventListener('mousedown', function(e) {
                 startX = e.pageX;
-                startWidth = col.offsetWidth;
+                startWidth = th.offsetWidth;
+                startClientX = e.clientX;
+                resizing = true;
 
-                // 添加调整中的样式
                 resizer.classList.add('resizing');
+                document.body.classList.add('resizing-columns');
 
-                // 添加全局事件监听
-                document.addEventListener('mousemove', onMouseMove);
-                document.addEventListener('mouseup', onMouseUp);
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
 
-                // 阻止默认行为和事件冒泡
                 e.preventDefault();
-                e.stopPropagation();
             });
 
-            // 鼠标移动事件
-            function onMouseMove(e) {
-                if (!startX) return;
+            function handleMouseMove(e) {
+                if (!resizing) return;
 
-                // 计算宽度变化
-                const width = startWidth + (e.pageX - startX);
+                const widthChange = e.clientX - startClientX;
+                const newWidth = startWidth + widthChange;
 
-                // 最小宽度限制
-                if (width >= 50) {
-                    col.style.width = `${width}px`;
-                    col.style.minWidth = `${width}px`;
+                if (newWidth > 80) {
+                    th.style.width = newWidth + 'px';
+                    th.style.minWidth = newWidth + 'px';
                 }
             }
 
-            // 鼠标释放事件
-            function onMouseUp() {
-                // 移除全局事件监听
-                document.removeEventListener('mousemove', onMouseMove);
-                document.removeEventListener('mouseup', onMouseUp);
-
-                // 移除调整中的样式
+            function handleMouseUp() {
+                resizing = false;
                 resizer.classList.remove('resizing');
+                document.body.classList.remove('resizing-columns');
 
-                // 重置初始状态
-                startX = null;
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
             }
         });
     }
 
-    // 页面加载时初始化
-    window.addEventListener('load', function() {
-        // 显示SQL历史记录
-        displaySqlHistory();
+    function bindDatabaseEvents() {
+        // 新增：绑定右上角执行按钮的点击事件
+        document.getElementById('top-execute-btn').addEventListener('click', executeSql);
 
-        // 初始化表格列宽调整
-        initTableResizers();
-    });
+        // 原有代码保持不变
+        document.getElementById('add-database-btn').addEventListener('click', function() {
+            document.getElementById('add-database-form').classList.remove('hidden');
+        });
+
+        document.getElementById('cancel-add-database').addEventListener('click', function() {
+            document.getElementById('add-database-form').classList.add('hidden');
+        });
+
+        document.getElementById('test-connection').addEventListener('click', function() {
+            const host = document.getElementById('host').value.trim();
+            const port = document.getElementById('port').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!host) {
+                document.getElementById('host-error').classList.remove('hidden');
+                return;
+            }
+            document.getElementById('host-error').classList.add('hidden');
+
+            if (!port || isNaN(port) || port < 1 || port > 65535) {
+                document.getElementById('port-error').classList.remove('hidden');
+                return;
+            }
+            document.getElementById('port-error').classList.add('hidden');
+
+            this.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> 连接中...';
+            this.disabled = true;
+
+            fetch('/test-connection', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({host, port, username, password})
+            })
+                .then(res => res.json())
+                .then(data => {
+                    this.innerHTML = '<i class="fa fa-check-circle mr-1"></i> 测试连接';
+                    this.disabled = false;
+
+                    if (data.success) {
+                        const list = document.getElementById('databases-list');
+                        list.innerHTML = '';
+                        data.databases.forEach(db => {
+                            const div = document.createElement('div');
+                            div.className = 'cursor-pointer px-3 py-2 text-sm text-gray-700 rounded hover:bg-blue-50';
+                            div.textContent = db;
+                            div.onclick = function() {
+                                document.querySelectorAll('#databases-list div').forEach(el => {
+                                    el.classList.remove('bg-blue-50', 'text-blue-700');
+                                });
+                                this.classList.add('bg-blue-50', 'text-blue-700');
+                                document.getElementById('selected-database').value = db;
+                            };
+                            list.appendChild(div);
+                        });
+                        document.getElementById('database-selection').classList.remove('hidden');
+                    } else {
+                        showMessage('连接失败: ' + data.message);
+                    }
+                })
+                .catch(err => {
+                    this.innerHTML = '<i class="fa fa-check-circle mr-1"></i> 测试连接';
+                    this.disabled = false;
+                    showMessage('请求失败: ' + err.message);
+                });
+        });
+
+        document.getElementById('save-database').addEventListener('click', function() {
+            const host = document.getElementById('host').value.trim();
+            const port = document.getElementById('port').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const database = document.getElementById('selected-database').value;
+
+            if (!host || !port || !username || !database) {
+                showMessage('请填写完整信息');
+                return;
+            }
+
+            this.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> 保存中...';
+            this.disabled = true;
+
+            fetch('/save-connection', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({host, port, username, password, database})
+            })
+                .then(res => res.json())
+                .then(data => {
+                    this.innerHTML = '<i class="fa fa-save mr-1"></i> 保存配置';
+                    this.disabled = false;
+
+                    if (data.success) {
+                        showMessage('保存成功', 'success');
+                        document.getElementById('add-database-form').classList.add('hidden');
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        showMessage('保存失败: ' + data.message);
+                    }
+                })
+                .catch(err => {
+                    this.innerHTML = '<i class="fa fa-save mr-1"></i> 保存配置';
+                    this.disabled = false;
+                    showMessage('请求失败: ' + err.message);
+                });
+        });
+
+        document.getElementById('clear-all-history').addEventListener('click', function() {
+            if (confirm('确定要清空所有历史记录吗？')) {
+                localStorage.removeItem('sqlHistory');
+                displaySqlHistory();
+            }
+        });
+    }
+
+    // 创建自动消失的提示弹框
+    function showToast(message, type = 'info', duration = 10000) {
+        // 创建toast容器
+        const toast = document.createElement('div');
+
+        // 根据类型设置样式
+        let bgColor, textColor, icon;
+        switch(type) {
+            case 'success':
+                bgColor = 'bg-green-50';
+                textColor = 'text-green-700';
+                icon = 'fa-check-circle';
+                break;
+            case 'error':
+                bgColor = 'bg-red-50';
+                textColor = 'text-red-700';
+                icon = 'fa-exclamation-circle';
+                break;
+            case 'loading':
+                bgColor = 'bg-blue-50';
+                textColor = 'text-blue-700';
+                icon = 'fa-spinner fa-spin';
+                break;
+            default:
+                bgColor = 'bg-gray-50';
+                textColor = 'text-gray-700';
+                icon = 'fa-info-circle';
+        }
+
+        // 设置样式和内容
+        toast.className = `fixed top-4 right-4 px-4 py-3 rounded-md shadow-lg border ${bgColor} ${textColor} transform transition-all duration-300 translate-x-full opacity-0 z-50`;
+        toast.innerHTML = `
+        <div class="flex items-center">
+            <i class="fa ${icon} mr-2"></i>
+            <span>${message}</span>
+        </div>
+    `;
+
+        // 添加到页面
+        document.body.appendChild(toast);
+
+        // 显示动画
+        setTimeout(() => {
+            toast.classList.remove('translate-x-full', 'opacity-0');
+        }, 10);
+
+        // 自动消失（加载状态不自动消失）
+        if (type !== 'loading') {
+            setTimeout(() => {
+                toast.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        // 返回toast元素，方便手动关闭
+        return toast;
+    }
+
+    // 关闭特定的toast
+    function closeToast(toast) {
+        if (toast) {
+            toast.classList.add('translate-x-full', 'opacity-0');
+            setTimeout(() => toast.remove(), 300);
+        }
+    }
 </script>
 </body>
 </html>
