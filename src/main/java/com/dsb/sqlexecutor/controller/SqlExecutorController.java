@@ -301,4 +301,19 @@ public class SqlExecutorController {
             return ResponseEntity.badRequest().body(null);
         }
     }
+
+    // 删除数据库配置
+    @DeleteMapping("/delete-database/{name}")
+    public ResponseEntity<String> deleteDatabase(@PathVariable String name) {
+        try {
+            sqlExecutorService.deleteDatabaseConfig(name);
+            return ResponseEntity.ok("数据库配置删除成功");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            log.error("删除数据库配置出错", e);
+            return ResponseEntity.status(500).body("删除数据库配置时发生错误");
+        }
+    }
+
 }

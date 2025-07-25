@@ -148,10 +148,11 @@ public class SqlExecutorService {
     // 获取表的元数据
     public List<Map<String, Object>> getTableMetadata() {
         String computerName = getComputerName();
-        String tenantId = computerDatabaseNameMap.get(computerName);
-        if (tenantId == null) {
+        String databaseName = computerDatabaseNameMap.get(computerName);
+        if (databaseName == null) {
             throw new IllegalStateException("请先选择或添加数据库配置");
         }
+        sqlExecutorRepository.setDataSource(dataSourceMap.get(databaseName));
         return sqlExecutorRepository.getTableMetadata();
 
     }
@@ -166,4 +167,16 @@ public class SqlExecutorService {
         return sqlExecutorRepository.getColumnMetadata();
 
     }
+    // 删除数据库配置
+    public void deleteDatabaseConfig(String name) {
+
+        if (databaseConfigMap.containsKey(name)) {
+            databaseConfigMap.remove(name);
+            dataSourceMap.remove(name);
+
+        } else {
+            throw new IllegalArgumentException("数据库配置不存在: " + name);
+        }
+    }
+
 }

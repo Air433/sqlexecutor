@@ -145,12 +145,16 @@
                             </div>
 
                             <div class="space-y-1">
-                                <a href="#" th:href="@{/switch-database/{name}(name=${configKey})}"
-                                   th:each="configKey : ${databaseConfigs.keySet()}"
-                                   class="block px-3 py-2 text-sm text-gray-700 rounded-md hover:bg-gray-100"
-                                   th:text="${configKey  +' (' + (databaseConfigs.get(configKey)?.databaseName ?: '未知数据库') + ')'}">
-                                    default (dsb)
-                                </a>
+                                <div th:each="configKey : ${databaseConfigs.keySet()}" class="flex items-center justify-between">
+                                    <a href="#" th:href="@{/switch-database/{name}(name=${configKey})}"
+                                       class="block px-3 py-2 text-sm text-gray-700 rounded-md hover:bg-gray-100"
+                                       th:text="${configKey  +' (' + (databaseConfigs.get(configKey)?.databaseName ?: '未知数据库') + ')'}">
+                                        default (dsb)
+                                    </a>
+                                    <button type="button" th:data-config-name="${configKey}" class="text-red-500 hover:text-red-700 text-xs flex items-center delete-database-btn">
+                                        <i class="fa fa-trash mr-1"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -1031,6 +1035,30 @@
         // 实现错误提示UI
         console.error(message);
     }
+
+    document.querySelectorAll('.delete-database-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const configName = this.dataset.configName;
+            if (confirm(`确定要删除数据库配置 ${configName} 吗？`)) {
+                fetch(`/delete-database/${configName}`, {
+                    method: 'DELETE'
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            showToast('数据库配置删除成功', 'success');
+                            setTimeout(() => location.href = '/', 1000);
+                        } else {
+                            response.text().then(errorMessage => {
+                                showToast(`删除失败: ${errorMessage}`, 'error');
+                            });
+                        }
+                    })
+                    .catch(err => {
+                        showToast(`请求失败: ${err.message}`, 'error');
+                    });
+            }
+        });
+    });
     // 页面加载时初始化
     window.addEventListener('load', fetchMetadataAndSetupHints);
 </script>
