@@ -20,6 +20,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/")
@@ -245,5 +246,58 @@ public class SqlExecutorController {
             }
         }
         return databases;
+    }
+
+    @GetMapping("/table-metadata")
+    public ResponseEntity<List<Map<String, Object>>> getTableMetadata() {
+        try {
+            List<Map<String, Object>> metadata = sqlExecutorService.getTableMetadata();
+            return ResponseEntity.ok(metadata);
+        } catch (Exception e) {
+            log.error("获取表元数据出错", e);
+            return ResponseEntity.badRequest().body(null);
+        }
+    }
+
+
+    // 在 SqlExecutorController 中添加
+    @GetMapping("/column-metadata")
+    public ResponseEntity<List<Map<String, Object>>> getColumnMetadata() {
+        try {
+            // 查询 INFORMATION_SCHEMA.COLUMNS 获取列信息
+            List<Map<String, Object>> columns = sqlExecutorService.getColumnMetadata();
+            return ResponseEntity.ok(columns);
+        } catch (Exception e) {
+            log.error("获取列元数据出错", e);
+            return ResponseEntity.badRequest().body(null);
+        }
+    }
+
+    @GetMapping("/metadata")
+    public ResponseEntity<Map<String, Object>> getMetadata() {
+        try {
+            List<Map<String, Object>> tableMetadata = sqlExecutorService.getTableMetadata();
+            List<Map<String, Object>> columns = sqlExecutorService.getColumnMetadata();
+            List<Object> tables = tableMetadata.stream()
+                    .map(Map::values).flatMap(Collection::stream)
+                    .collect(Collectors.toList());
+
+            Map<String, List<String>> columnMap = columns.stream()
+                    .collect(Collectors.groupingBy(
+                            row -> ((String) row.get("TABLE_NAME")).toLowerCase(), // 按表名分组并转为小写
+                            Collectors.mapping(
+                                    row -> (String) row.get("COLUMN_NAME"), // 提取列名
+                                    Collectors.toList()
+                            )
+                    ));
+            Map result = new HashMap();
+            result.put("tableNames", tables);
+            result.put("tableColumns", columnMap);
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("获取表元数据出错", e);
+            return ResponseEntity.badRequest().body(null);
+        }
     }
 }

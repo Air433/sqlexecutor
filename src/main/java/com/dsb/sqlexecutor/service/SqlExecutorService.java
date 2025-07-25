@@ -178,4 +178,21 @@ public class SqlExecutorService {
                 databaseConfigMap.containsKey(currentDatabase) &&
                 databaseConfigMap.get(currentDatabase) != null;
     }
+
+    // 获取表的元数据
+    public List<Map<String, Object>> getTableMetadata() {
+        if (!hasValidDatabaseConfig()) {
+            throw new IllegalStateException("请先选择或添加数据库配置");
+        }
+        // 执行获取元数据的查询
+        return sqlExecutorRepository.getTableMetadata();
+    }
+
+    // 在 SqlExecutorService 中添加
+    public List<Map<String, Object>> getColumnMetadata() {
+        if (!hasValidDatabaseConfig()) {
+            throw new IllegalStateException("请先选择或添加数据库配置");
+        }
+        return sqlExecutorRepository.getColumnMetadata();
+    }
 }

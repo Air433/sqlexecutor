@@ -63,4 +63,34 @@ public class SqlExecutorRepository {
         dataSource.setPassword(password);
         return dataSource;
     }
+
+    // 获取表的元数据
+    public List<Map<String, Object>> getTableMetadata() {
+        // 执行 SQL 查询获取表元数据
+        return jdbcTemplate.query("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES", (ResultSet rs, int rowNum) -> {
+            ResultSetMetaData metaData = rs.getMetaData();
+            int columnCount = metaData.getColumnCount();
+            Map<String, Object> row = new LinkedHashMap<>();
+            for (int i = 1; i <= columnCount; i++) {
+                String columnName = metaData.getColumnName(i);
+                Object value = rs.getObject(i);
+                row.put(columnName, value);
+            }
+            return row;
+        });
+    }
+
+    // 在 SqlExecutorRepository 中添加
+    public List<Map<String, Object>> getColumnMetadata() {
+        return jdbcTemplate.query(
+                "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS",
+                (rs, rowNum) -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("TABLE_NAME", rs.getString("TABLE_NAME"));
+                    row.put("COLUMN_NAME", rs.getString("COLUMN_NAME"));
+                    row.put("DATA_TYPE", rs.getString("DATA_TYPE"));
+                    return row;
+                }
+        );
+    }
 }

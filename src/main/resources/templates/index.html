@@ -11,6 +11,9 @@
     <script src="/js/tailwind.js"></script>
     <link href="/css/font-awesome.min.css" rel="stylesheet">
 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/show-hint.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/show-hint.min.js"></script>
+
     <style type="text/tailwindcss">
         @layer utilities {
             .content-auto {
@@ -328,7 +331,16 @@
             autofocus: true,
             lineWrapping: false,
             extraKeys: {
-                'Ctrl-Enter': executeSql
+                'Ctrl-Enter': executeSql,
+                'Ctrl-Space': 'autocomplete' // 手动触发快捷键
+            }
+        });
+        editor.on('inputRead', function() {
+            const cursor = editor.getCursor();
+            const token = editor.getTokenAt(cursor);
+            // 当输入的是字母、数字或点时，触发补全
+            if (/[a-zA-Z0-9.]/.test(token.string)) {
+                editor.execCommand('autocomplete');
             }
         });
 
@@ -768,6 +780,245 @@
             setTimeout(() => toast.remove(), 300);
         }
     }
+
+    // 获取数据库元数据并配置补全
+    function fetchMetadataAndSetupHints() {
+        fetch('/table-metadata')
+            .then(response => response.json())
+            .then(data => {
+                // 提取表名和列名（假设元数据格式包含这些信息）
+                const tableNames = data.map(item => item.TABLE_NAME);
+
+                // 获取列信息（需要后端提供更详细的元数据接口）
+                fetch('/column-metadata')
+                    .then(colResponse => colResponse.json())
+                    .then(columnData => {
+                        // 构建完整的补全字典
+                        const sqlKeywords = [
+                            'SELECT', 'FROM', 'WHERE', 'JOIN', 'ON', 'GROUP BY', 'ORDER BY',
+                            'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'LIMIT',
+                            'OFFSET', 'HAVING', 'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX'
+                        ];
+
+                        // 合并关键字、表名和列名
+                        const allHints = [...sqlKeywords, ...tableNames];
+
+                        // 为每个表添加列信息
+                        const tableColumns = {};
+                        columnData.forEach(col => {
+                            if (!tableColumns[col.TABLE_NAME]) {
+                                tableColumns[col.TABLE_NAME] = [];
+                            }
+                            tableColumns[col.TABLE_NAME].push(col.COLUMN_NAME);
+                        });
+
+                        // 配置 CodeMirror 补全
+                        editor.setOption('extraKeys', {
+                            'Ctrl-Space': 'autocomplete'
+                        });
+
+                        editor.setOption('hintOptions', {
+                            completeSingle: false,
+                            hint: (editor, options) => {
+                                // 获取光标位置和当前正在输入的单词
+                                const cursor = editor.getCursor();
+                                const token = editor.getTokenAt(cursor);
+
+                                // 确定补全类型（表名、列名或关键字）
+                                let hints = allHints;
+
+                                // 简单逻辑：如果前面有 "FROM " 或 "JOIN "，则补全表名
+                                const line = editor.getLine(cursor.line);
+                                const fromIndex = line.lastIndexOf('FROM ');
+                                const joinIndex = line.lastIndexOf('JOIN ');
+                                const tableContext = Math.max(fromIndex, joinIndex);
+
+                                if (tableContext !== -1 && tableContext < cursor.ch) {
+                                    // 补全表名
+                                    hints = tableNames;
+                                } else if (token.string.includes('.')) {
+                                    // 补全列名（格式为 "tableName.column"）
+                                    const parts = token.string.split('.');
+                                    if (parts.length === 2 && tableColumns[parts[0]]) {
+                                        hints = tableColumns[parts[0]];
+                                    }
+                                }
+
+                                // 过滤匹配的提示
+                                const word = token.string;
+                                const filteredHints = hints.filter(item =>
+                                    item.toLowerCase().startsWith(word.toLowerCase())
+                                );
+
+                                // 返回补全结果
+                                return {
+                                    list: filteredHints,
+                                    from: CodeMirror.Pos(cursor.line, token.start),
+                                    to: CodeMirror.Pos(cursor.line, token.end)
+                                };
+                            }
+                        });
+                    });
+            });
+
+
+    }
+
+    // 修复后的最小化测试代码（确保tableColumns生效）
+    async function fetchMetadataAndSetupHints() {
+        // 从后端API获取表结构数据
+        const metadata = await fetchTableMetadata();
+
+        // 解构API返回的数据
+        const { tableNames, tableColumns } = metadata;
+
+        // 基础SQL关键字列表
+        const sqlKeywords = [
+            'SELECT', 'FROM', 'WHERE', 'JOIN', 'ON', 'GROUP BY', 'ORDER BY',
+            'INSERT INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'LIMIT', 'OFFSET',
+            'HAVING', 'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'AS', 'IN',
+            'LIKE', 'BETWEEN', 'AND', 'OR', 'NOT', 'NULL', 'TRUE', 'FALSE', 'LEFT', 'RIGHT', 'TOP'
+        ];
+
+        // 配置CodeMirror自动补全
+        editor.setOption('extraKeys', {
+            'Ctrl-Space': 'autocomplete',
+            'Ctrl-Enter': executeSql
+        });
+
+        editor.setOption('hintOptions', {
+            completeSingle: false,
+            hint: (editor) => {
+                // 补全逻辑保持不变，使用从API获取的tableNames和tableColumns
+                const cursor = editor.getCursor();
+                const line = editor.getLine(cursor.line);
+                const textBeforeCursor = line.slice(0, cursor.ch);
+
+                // 提取当前正在输入的单词
+                const identifierRegex = /[\w.]+$/;
+                const match = textBeforeCursor.match(identifierRegex);
+                const word = match ? match[0].trim().toLowerCase() : '';
+
+                // 基础提示列表
+                let hints = [...tableNames, ...sqlKeywords];
+
+                // 解析表别名
+                const tableAliases = {};
+                const fullText = editor.getValue().toLowerCase();
+
+                // 解析FROM和JOIN子句
+                const fromRegex = /from\s+(\w+)(\s+as)?\s+(\w+)/gi;
+                let fromMatch;
+                while ((fromMatch = fromRegex.exec(fullText))) {
+                    tableAliases[fromMatch[3].toLowerCase()] = fromMatch[1].toLowerCase();
+                }
+
+                const joinRegex = /join\s+(\w+)(\s+as)?\s+(\w+)/gi;
+                let joinMatch;
+                while ((joinMatch = joinRegex.exec(fullText))) {
+                    tableAliases[joinMatch[3].toLowerCase()] = joinMatch[1].toLowerCase();
+                }
+
+                // 处理 "表名/别名.列名" 格式
+                if (word.includes('.') && word.length > 1) {
+                    const [prefix, columnPrefix] = word.split('.');
+                    const tableName = tableAliases[prefix] ||
+                        Object.keys(tableColumns).find(
+                            t => t.toLowerCase() === prefix.toLowerCase()
+                        );
+
+                    if (tableName && tableColumns[tableName]) {
+                        hints = tableColumns[tableName];
+                    }
+                }
+
+                // 计算筛选前缀和补全范围（保持原有逻辑）
+                const filterPrefix = word.includes('.')
+                    ? word.split('.')[1].toLowerCase()
+                    : word;
+
+                let fromPos = cursor;
+                if (word.includes('.')) {
+                    const dotIndex = textBeforeCursor.lastIndexOf('.');
+                    fromPos = CodeMirror.Pos(cursor.line, dotIndex + 1);
+                } else {
+                    fromPos = CodeMirror.Pos(cursor.line, textBeforeCursor.length - word.length);
+                }
+
+                return {
+                    list: hints.filter(h => h.toLowerCase().startsWith(filterPrefix)),
+                    from: fromPos,
+                    to: cursor
+                };
+            }
+        });
+
+        // 配置输入事件触发补全
+        editor.on('inputRead', function() {
+            const cursor = editor.getCursor();
+            const token = editor.getTokenAt(cursor);
+
+            if (/[a-zA-Z0-9.]/.test(token.string)) {
+                editor.execCommand('autocomplete');
+            }
+        });
+
+        console.log('自动补全初始化完成');
+    }
+
+    // 从后端API获取表结构数据
+    async function fetchTableMetadata() {
+        try {
+            // 显示加载状态
+            // showLoadingIndicator();
+
+            // 发送请求到后端API
+            const response = await fetch('/metadata', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // 如果需要认证，添加Authorization头
+                    // 'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`API请求失败: ${response.status}`);
+            }
+
+            // 解析响应数据
+            const responseText = await response.text();
+
+            const data = JSON.parse(responseText);
+
+            // 隐藏加载状态
+            // hideLoadingIndicator();
+
+            // 返回标准化的数据结构
+            let tableInfo = {
+                tableNames: data.tableNames || [],
+                tableColumns: data.tableColumns || {}
+            }
+            return tableInfo;
+        } catch (error) {
+            console.error('获取表结构数据失败:', error);
+            // hideLoadingIndicator();
+
+            // 提供默认数据或显示错误提示
+            // showErrorToast('无法加载表结构数据，请重试');
+
+            // 返回空数据
+            return {
+                tableNames: [],
+                tableColumns: {}
+            };
+        }
+    }
+
+    // 显示/隐藏加载状态的辅助函数
+
+    // 页面加载时初始化
+    window.addEventListener('load', fetchMetadataAndSetupHints);
 </script>
 </body>
 </html>
