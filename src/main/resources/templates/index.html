@@ -695,7 +695,7 @@
                     if (data.success) {
                         showMessage('保存成功', 'success');
                         document.getElementById('add-database-form').classList.add('hidden');
-                        setTimeout(() => location.reload(), 1000);
+                        setTimeout(() =>  window.location.href = '/switch-database/'+ data.connectionName, 1000);
                     } else {
                         showMessage('保存失败: ' + data.message);
                     }
@@ -1016,7 +1016,21 @@
     }
 
     // 显示/隐藏加载状态的辅助函数
+    // 显示/隐藏加载状态的辅助函数
+    function showLoadingIndicator() {
+        const loadingEl = document.getElementById('sql-editor-loading');
+        if (loadingEl) loadingEl.style.display = 'block';
+    }
 
+    function hideLoadingIndicator() {
+        const loadingEl = document.getElementById('sql-editor-loading');
+        if (loadingEl) loadingEl.style.display = 'none';
+    }
+
+    function showErrorToast(message) {
+        // 实现错误提示UI
+        console.error(message);
+    }
     // 页面加载时初始化
     window.addEventListener('load', fetchMetadataAndSetupHints);
 </script>

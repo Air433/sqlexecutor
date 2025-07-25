@@ -215,7 +215,7 @@ public class SqlExecutorController {
             // 保存配置
             sqlExecutorService.addDatabaseConfig(connectionName, config);
 
-
+            result.put("connectionName", connectionName);
             result.put("success", true);
             result.put("message", "数据库配置已保存");
             return ResponseEntity.ok(result);
