@@ -21,7 +21,7 @@ public class SqlExecutorService {
 
     private final Map<String, DatabaseConfig> databaseConfigMap = new HashMap<>();
     private final Map<String, String> computerDatabaseNameMap = new HashMap<>();
-    private final Map<String, DataSource> computerDataSourceMap = new HashMap<>();
+    private final Map<String, DataSource> dataSourceMap = new HashMap<>();
 
     // 获取计算机名称
     private String getComputerName() {
@@ -39,7 +39,7 @@ public class SqlExecutorService {
         if (databaseName == null) {
             throw new IllegalStateException("请先选择或添加数据库配置");
         }
-        DataSource dataSource = computerDataSourceMap.get(computerName);
+        DataSource dataSource = dataSourceMap.get(databaseName);
         sqlExecutorRepository.setDataSource(dataSource);
         return sqlExecutorRepository.executeQuery(sql);
 
@@ -78,7 +78,7 @@ public class SqlExecutorService {
                 config.getJdbcUrl(),
                 config.getUsername(),
                 config.getPassword());
-        computerDataSourceMap.put(name, dataSource);
+        dataSourceMap.put(name, dataSource);
     }
 
     // 切换数据库
@@ -90,12 +90,11 @@ public class SqlExecutorService {
             throw new IllegalArgumentException("数据库配置不存在: " + name);
         }
 
-        if (name.equals(computerDatabaseNameMap.get(computerName))){
-
-        }else {
+        if (!name.equals(computerDatabaseNameMap.get(computerName))){
             computerDatabaseNameMap.put(computerName, name);
-            DataSource dataSource = sqlExecutorRepository.createDataSource(config.getJdbcUrl(), config.getUsername(), config.getPassword());
-            computerDataSourceMap.put(computerName, dataSource);
+
+            dataSourceMap.computeIfAbsent(name,(k)-> sqlExecutorRepository.createDataSource(config.getJdbcUrl(), config.getUsername(), config.getPassword()));
+
         }
 
 
@@ -116,7 +115,7 @@ public class SqlExecutorService {
     public List<String> getDatabases() {
         String computerName = getComputerName();
 
-        DataSource dataSource = computerDataSourceMap.get(computerName);
+        DataSource dataSource = dataSourceMap.get(computerDatabaseNameMap.get(computerName));
         if (dataSource == null) {
             return Collections.emptyList();
         }
