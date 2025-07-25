@@ -15,21 +15,27 @@ import java.util.Map;
 @Repository
 public class SqlExecutorRepository {
 
-    private JdbcTemplate jdbcTemplate;
+//    private JdbcTemplate jdbcTemplate;
+    ThreadLocal<JdbcTemplate> jdbcTemplateThreadLocal = new ThreadLocal<>();
 
 //    @Autowired
 //    public SqlExecutorRepository(DataSource dataSource) {
 //        this.jdbcTemplate = new JdbcTemplate(dataSource);
 //    }
 
+    public ThreadLocal<JdbcTemplate> getJdbcTemplateThreadLocal() {
+        return jdbcTemplateThreadLocal;
+    }
+
     // 切换数据源
     public void setDataSource(DataSource dataSource) {
-        this.jdbcTemplate = new JdbcTemplate(dataSource);
+//        this.jdbcTemplate = new JdbcTemplate(dataSource);
+        jdbcTemplateThreadLocal.set(new JdbcTemplate(dataSource));
     }
 
     // 执行查询语句
     public List<Map<String, Object>> executeQuery(String sql) {
-        return jdbcTemplate.query(sql, (ResultSet rs, int rowNum) -> {
+        return jdbcTemplateThreadLocal.get().query(sql, (ResultSet rs, int rowNum) -> {
             ResultSetMetaData metaData = rs.getMetaData();
             int columnCount = metaData.getColumnCount();
             Map<String, Object> row = new LinkedHashMap<>(); // 使用 LinkedHashMap 保证顺序
@@ -45,13 +51,13 @@ public class SqlExecutorRepository {
 
     // 执行更新语句（INSERT/UPDATE/DELETE）
     public int executeUpdate(String sql) {
-        return jdbcTemplate.update(sql);
+        return jdbcTemplateThreadLocal.get().update(sql);
     }
 
     // 获取数据库列表
     // 获取SQL Server中的所有数据库
     public List<String> getDatabases() {
-        return jdbcTemplate.queryForList("SELECT name FROM sys.databases", String.class);
+        return jdbcTemplateThreadLocal.get().queryForList("SELECT name FROM sys.databases", String.class);
     }
 
     // 创建新的数据源
@@ -67,7 +73,7 @@ public class SqlExecutorRepository {
     // 获取表的元数据
     public List<Map<String, Object>> getTableMetadata() {
         // 执行 SQL 查询获取表元数据
-        return jdbcTemplate.query("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES", (ResultSet rs, int rowNum) -> {
+        return jdbcTemplateThreadLocal.get().query("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES", (ResultSet rs, int rowNum) -> {
             ResultSetMetaData metaData = rs.getMetaData();
             int columnCount = metaData.getColumnCount();
             Map<String, Object> row = new LinkedHashMap<>();
@@ -82,7 +88,7 @@ public class SqlExecutorRepository {
 
     // 在 SqlExecutorRepository 中添加
     public List<Map<String, Object>> getColumnMetadata() {
-        return jdbcTemplate.query(
+        return jdbcTemplateThreadLocal.get().query(
                 "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS",
                 (rs, rowNum) -> {
                     Map<String, Object> row = new LinkedHashMap<>();
