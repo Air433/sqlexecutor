@@ -117,7 +117,7 @@ public class SqlExecutorController {
         // 填充页面数据
         model.addAttribute("sql", "");
         model.addAttribute("result", null);
-        model.addAttribute("databaseConfig", new DatabaseConfig());
+        model.addAttribute("databaseConfig", databaseConfig!=null?databaseConfig:new DatabaseConfig());
         model.addAttribute("databaseConfigs", sqlExecutorService.getAllDatabaseConfigs());
         model.addAttribute("databases", sqlExecutorService.getDatabases());
 
@@ -214,6 +214,7 @@ public class SqlExecutorController {
 
             // 保存配置
             sqlExecutorService.addDatabaseConfig(connectionName, config);
+
 
             result.put("success", true);
             result.put("message", "数据库配置已保存");
